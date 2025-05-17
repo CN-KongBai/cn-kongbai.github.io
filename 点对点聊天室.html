@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>点对点聊天室</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        /* 整体布局样式 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #1a73e8;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header-note {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin: 10px 0 30px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input, button {
+            padding: 8px;
+            border: 1px solid #dfe1e5;
+            border-radius: 24px;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #1a73e8;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+        }
+
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #dfe1e5;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .status-tip {
+            text-align: center;
+            color: #2e7d32; /* 绿色成功提示 */
+            margin: 10px 0;
+        }
+
+        .error-tip {
+            color: #d32f2f; /* 红色错误提示 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>点对点聊天室</h1>
+        <!-- 固定注释区域 -->
+        <div class="header-note">
+            欢迎来到点对点聊天室<br>
+            依赖于 Peer JS<br>
+            全前端搭建
+        </div>
+
+        <div class="input-group">
+            <div>
+                你的ID：<span id="myId"></span>
+            </div>
+            <input type="text" id="peerId" placeholder="输入对方的连接ID">
+            <button onclick="connectToPeer()">发起连接</button>
+        </div>
+
+        <!-- 状态提示区域 -->
+        <div id="statusTip" class="status-tip"></div>
+
+        <div id="messages"></div>
+
+        <div class="input-group">
+            <input type="text" id="messageInput" placeholder="输入聊天内容">
+            <button onclick="sendMessage()">发送消息</button>
+        </div>
+    </div>
+
+    <script>
+        const peer = new Peer({ debug: 2 });
+        let conn;
+        const statusTip = document.getElementById('statusTip');
+
+        peer.on('open', (id) => {
+            document.getElementById('myId').textContent = id;
+            statusTip.textContent = ''; // 清除旧状态
+        });
+
+        peer.on('connection', (incomingConn) => {
+            conn = incomingConn;
+            setupConnection(conn);
+            statusTip.textContent = '已接收连接，聊天已开启'; // 被动连接成功提示
+            statusTip.className = 'status-tip'; // 绿色提示
+        });
+
+        function connectToPeer() {
+            const peerId = document.getElementById('peerId').value;
+            if (!peerId) return statusTip.textContent = '请输入对方ID';
+            
+            conn = peer.connect(peerId);
+            setupConnection(conn);
+            statusTip.textContent = '正在尝试连接...'; // 连接中提示
+
+            // 添加连接状态监听
+            conn.on('open', () => {
+                statusTip.textContent = '连接成功！现在可以开始聊天';
+                statusTip.className = 'status-tip'; // 绿色提示
+            });
+
+            conn.on('close', () => {
+                statusTip.textContent = '连接已断开，请重新连接';
+                statusTip.className = 'error-tip'; // 红色提示
+            });
+
+            conn.on('error', (error) => {
+                statusTip.textContent = `连接失败：${error.message}`;
+                statusTip.className = 'error-tip'; // 红色提示
+            });
+        }
+
+        function setupConnection(conn) {
+            conn.on('data', (data) => addMessage(`对方：${data}`));
+            conn.on('close', () => {
+                addMessage('连接已断开');
+                statusTip.textContent = '连接已断开，请重新连接';
+                statusTip.className = 'error-tip';
+            });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (message && conn) {
+                conn.send(message);
+                addMessage(`你：${message}`);
+                input.value = '';
+            } else if (!conn) {
+                statusTip.textContent = '请先建立连接';
+                statusTip.className = 'error-tip';
+            }
+        }
+
+        function addMessage(text) {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML += `<p>${text}</p>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // 自动滚动到底部
+        }
+    </script>
+</body>
+</html>
